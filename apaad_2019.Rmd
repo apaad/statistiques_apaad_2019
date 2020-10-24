@@ -37,8 +37,7 @@ library(tidyverse)
 library(readxl)
 library(kableExtra)
 
-# Functions
-
+# Fonctions
 # Donne les levels d'une colonne de type character
 fct_summary <- function(donnees, variable){
   return( donnees %>% pull(variable) %>% as.factor() %>% summary() )
@@ -379,6 +378,8 @@ don <- don_raw %>%
     ),
     douleur = douleur %>% str_extract('^(.+?),') %>% str_sub(1, -2)
   ) %>%
+  # La collecte des données relatives aux femmes qui ont été suivies par cette sage-femme n'a pas pu être réalisée dans de bonnes conditions.
+  # Beaucoup de valeurs sont manquantes ou incohérentes. On exclut ces données de l'étude.
   filter( !startsWith(id, 'ggov') )
 ```
 
@@ -749,7 +750,7 @@ don_profil_groupes_transfert %>%
   ) %>%
   mutate(
     Proportion = (100*Nombre/sum(Nombre)) %>% round(2) %>% str_c(' %'),
-    `Parité` = if_else(`Parité`, 'Strictement moins de 5', '5+')
+    `Parité` = if_else(`Parité`, '<5', '5+')
     ) %>%
   kable() %>%
   kable_styling(
@@ -1003,28 +1004,27 @@ don_uterus_cicatriciel_hemo %>%
     )
 ```
 
-Le nombre de femmes présentant un utérus cicatriciel et ayant fait l'objet d'un transfert est faible mais reste au-dessus des standards pour le test effectué (effectifs $\geq$ 5).
+Le nombre de femmes présentant un utérus cicatriciel et ayant fait une hémorragie (effectifs < 5) ne permet pas de d'effectuer le test d'indépendance dans des conditions satisfaisantes.
 
 ```{r, message = FALSE, warning = FALSE}
-chi2_uterus_cicatriciel_hemo <- don_uterus_cicatriciel_hemo %>%
-  table() %>%
-  chisq.test()
-
-print(chi2_uterus_cicatriciel_hemo)
+# Conditions du test non satisfaites
+# chi2_uterus_cicatriciel_hemo <- don_uterus_cicatriciel_hemo %>%
+#   table() %>%
+#   chisq.test()
+# 
+# print(chi2_uterus_cicatriciel_hemo)
 ```
 
-La p-value est approximativement égale à `r chi2_uterus_cicatriciel_hemo$p.value`. On ne rejette pas l'hypothèse d'indépendance $H_0$ au seuil de signification 5%. Le test ne permet pas de conclure qu'il existe une dépendance statistique entre les deux variables étudiées.
 
 # Transfert anténatal
 
 ## Lien entre transfert anténatal, âge et parité
 
-On effectue une régression logistique où la variable à expliquer est le transfert anténatal (1 : transfert / 0 : pas de transfert), et les variables explciatives sont l'âge de la mère et la parité.
+On effectue une régression logistique où la variable à expliquer est le transfert anténatal (1 : transfert / 0 : pas de transfert), et les variables explicatives sont l'âge de la mère et la parité.
 
 ```{r}
 don_transfert_antenatal_age_parite <- don %>%
   select(transfert_antenatal, age_mere, parite) %>%
-  drop_na() %>% # Seulement 1 NA pour 1323 individus, on se permet de l'exclure.
   mutate(transfert_antenatal=as.factor(transfert_antenatal))
 logistic_reg <- glm(transfert_antenatal ~ age_mere + parite, data = don_transfert_antenatal_age_parite, family = 'binomial' )
 logistic_reg %>% summary()
@@ -1040,7 +1040,6 @@ D'après le test LRT, l'âge de la mère n'est pas une variable statistiquement 
   
 * L'**âge de la mère** ne semble pas être lié au transfert anténatal
 * Statistiquement, la **parité** a une influence claire sur le transfert anténatal : plus la parité est élevée, moins la probabilité de transfert est importante.
-
 
 
 ```{r}
@@ -1085,6 +1084,8 @@ don_profil %>%
 ``` 
 
 # Travail
+
+Dans cette partie, on exclut la population des femmes ayant fait l'objet d'un transfert anténatal.  
 
 ```{r include=FALSE}
 # Données relatives au travail
@@ -1168,10 +1169,10 @@ don_phases <- don_travail %>%
 don_phases %>%
   group_by(`Phase de travail`) %>%
   summarise(
-    `Durée moyenne` = mean(Durée, na.rm = TRUE) %>% round(2),
-    `Durée minimale` = min(Durée, na.rm = TRUE) %>% round(2),
-    `Durée maximale` = max(Durée, na.rm = TRUE) %>% round(2),
-    `Écart-type` = sd(Durée, na.rm = TRUE) %>% round(2),
+    `Durée moyenne (h)` = mean(Durée, na.rm = TRUE) %>% round(2),
+    `Durée minimale (h)` = min(Durée, na.rm = TRUE) %>% round(2),
+    `Durée maximale (h)` = max(Durée, na.rm = TRUE) %>% round(2),
+    `Écart-type (h)` = sd(Durée, na.rm = TRUE) %>% round(2),
   ) %>%
   kable() %>%
   kable_styling(
@@ -1183,7 +1184,7 @@ don_phases %>%
 ```{r}
 hist_phases <- ggplot(data = drop_na(don_phases, Durée) )+
   geom_histogram( aes(x=Durée,y=stat(density)), binwidth = 1, color = 'darkblue', fill='darkblue' ) +
-  xlab('Durée du travail') +
+  xlab('Durée du travail (h)') +
   ylab('Proportion') +
   facet_wrap(~`Phase de travail`, scales='free_x') +
   theme_minimal() +
@@ -1204,10 +1205,10 @@ don_rupture %>%
   group_by(`Rupture` = rupture_poche) %>%
   summarise(
     Nombre = n(),
-    `Durée travail - Min (min)` = min(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),
-    `Durée travail - Max (min)` = max(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),
-    `Durée travail - Moy. (min)` = round(mean(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),2),
-    `Durée travail - E.T. (min)` = round(sd(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),2)
+    `Durée travail - Min (h)` = min(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),
+    `Durée travail - Max (h)` = max(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),
+    `Durée travail - Moy. (h)` = round(mean(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),2),
+    `Durée travail - E.T. (h)` = round(sd(duree_travail_1_latence + duree_travail_2_active, na.rm = TRUE),2)
   ) %>%
   mutate(
     Proportion = (100*Nombre/sum(Nombre)) %>% round(2) %>% str_c(' %')
@@ -1225,7 +1226,7 @@ don_rupture %>%
 ```
 
 ```{r fig.align="center"}
-hist_rupture <- ggplot(data = don_rupture %>% drop_na(rupture_poche)) +
+hist_rupture <- ggplot(data = don_rupture) +
   geom_bar( mapping = aes(x=rupture_poche), color = 'orangered3', fill='orangered3' ) +
   xlab('Rupture de la poche des eaux') +
   ylab('Effectifs') +
@@ -1242,7 +1243,6 @@ print(hist_rupture)
 
 ```{r}
 don_ouverture <- don_travail %>%
-  #drop_na(duree_ouverture_oeuf) %>%
   group_by(`Durée d'ouverture de l'oeuf` = duree_ouverture_oeuf) %>%
   summarise(
     Nombre = n(),
@@ -1371,7 +1371,7 @@ print(hist_la_transfert)
 
 ##### Premier test
 
-On procède à un test du $\chi^2$ d'indépendance entre les deux variables **Couleur du liquide amniotique** et **transfert per-partum OU post-partum**. Dans cette partie, on exclut les individus tels que **Couleur du liquide amniotique** = *Autre ( sanglant, citrin ... )*. L'hypothèse nulle est $H_0$ : les deux variables sont indépendantes.
+On procède à un test du $\chi^2$ d'indépendance entre les deux variables **Couleur du liquide amniotique** et **transfert per-partum OU post-partum**. Dans cette partie, on exclut les individus tels que **Couleur du liquide amniotique** = *Autre ( sanglant, citrin ... )* car les effectifs associés sont faibles. L'hypothèse nulle est $H_0$ : les deux variables sont indépendantes.
 
 ```{r, message = FALSE, warning = FALSE}
 don_la_transfert_chi2 <- don_la_transfert %>%
@@ -1444,7 +1444,7 @@ La **couleur du liquide amniotique** et le **transfert per-partum ou post-partum
 ### Effectifs
 
 ```{r}
-don_presentation <- don_travail # %>% drop_na(presentation)
+don_presentation <- don_travail
 
 hist_presentation <- ggplot(data = don_presentation) +
   geom_bar( mapping = aes(x=fct_infreq(presentation)), stat = 'count', color = 'orangered3', fill='orangered3' ) +
@@ -1564,6 +1564,8 @@ RR = `r rr(146, 146+868, 22, 22+39)` et IC95%(RR) = `r icrr(146, 146+868, 22, 22
 
 # Accouchement des femmes non-transférées
 
+Dans cette partie, on exclut la population des femmes ayant fait l'objet d'un transfert anténatal ou d'un transfert perpartum.
+
 ## Position d'accouchement
 
 ```{r}
@@ -1578,7 +1580,7 @@ don_accouchement <- don %>%
 ### Effectifs
 
 ```{r}
-don_position_accouchement <- don_accouchement # %>% drop_na(position_accouchement)
+don_position_accouchement <- don_accouchement
 
 hist_position_accouchement <- ggplot(data = don_position_accouchement) +
   geom_bar( mapping = aes(x=fct_infreq(position_accouchement)), stat = 'count', color = 'orangered3', fill='orangered3' ) +
@@ -1662,7 +1664,7 @@ group_by(
     )
 ```
 
-Il faut exclure la *position gynécologique* par manque d'individus. La proportion de périnée intact est la plus élevée pour cette position. Il faut néanmoins nuancer cette observation en prenant en compte le faible nombre d'individus concernés.
+Il faut exclure la *position gynécologique* par manque d'individus. On peut néanmoins noter que la proportion de périnée intact est la plus élevée pour cette position. Cette observation est toutefois à nuancer en prenant en compte le faible nombre d'individus concernés.
 
 ```{r, message = FALSE, warning = FALSE}
 don_position_perinee_chi2 <- don_position_perinee %>%
@@ -1674,7 +1676,7 @@ position_perinee_chi2 <- chisq.test(don_position_perinee_chi2)
 print(position_perinee_chi2)
 ```
 
-La p-value est nettement supérieure à 0.05, égale à `r position_perinee_chi2$p.value`. On ne rejette pas l'hypothèse d'indépendance au seuil de 5 %. Les variables de *position d'accouchement* et d'*état du périnée* semblent statistiquement indépendantes.
+La p-value est nettement supérieure à 0.05, égale à `r position_perinee_chi2$p.value`. On ne rejette pas l'hypothèse d'indépendance au seuil de 5 %. Les variables de *position d'accouchement* et d'*état du périnée* apparaissent donc statistiquement indépendantes.
 
 ## Accouchement dans l'eau
 
@@ -2017,7 +2019,6 @@ On effectue une analyse de variance de la durée d'expulsion en fonction de la p
 ```{r}
 don_duree_expulsion_position <- don_accouchement %>%
   select(duree_expulsion, position_accouchement) %>%
-  drop_na() %>%
   mutate(
     position_accouchement = case_when(
       position_accouchement %in% c('Assise', 'Semi-assise') ~ 'Assise / Semi-assise',
@@ -2047,7 +2048,7 @@ don_duree_expulsion_position %>%
     )
 ```
 
-La durée d'expulsion paraît beaucoup plus importante en position gynécologique. Le nombre d'individus est toutefois très inférieur aux effectifs des autres groupes de position.
+La durée d'expulsion paraît beaucoup plus importante en position gynécologique. Le nombre d'individus est néanmoins très inférieur aux effectifs des autres groupes de position.
 
 ## Hands on / Hands off
 
@@ -2071,7 +2072,7 @@ don_hands <- don_accouchement %>%
     perinee = case_when(
       is.na(perinee) ~ NA_character_,
       str_sub(perinee, 1, 1) == '1' ~ 'Degré 1',
-      str_sub(perinee, 1, 1) %in% c('2', '3', 'E') ~ 'Degré 2 / Degré 3 / Épisiotomie',
+      str_sub(perinee, 1, 1) %in% c('2', '3', 'É') ~ 'Degré 2 / Degré 3 / Épisiotomie',
       str_sub(perinee, 1, 1) == 'I' ~ 'Intact',
       TRUE ~ perinee
     )
@@ -2109,7 +2110,7 @@ print(hist_hands)
 
 ### Hands On-Off / État du périnée
 
-On procède à un test du $\chi^2$ d'indépendance entre les deux variables **Hands On-Off** et **État du périnée**. On exclut les valeurs manquantes et on fusionne les modalités *Degré 1*, *Degré 2* et *Épisiotomie* pour la variable *État du périnée* afin de garantir des effectifs suffisants pour le test d'indépendance. L'hypothèse nulle est $H_0$ : les deux variables sont indépendantes. On présente ci-dessous le tableau des effectifs, puis les résultats du test d'indépendance.
+On procède à un test du $\chi^2$ d'indépendance entre les deux variables **Hands On-Off** et **État du périnée**. On exclut les valeurs manquantes et on fusionne les modalités *Degré 1*, *Degré 2* et *Épisiotomie* pour la variable *État du périnée* afin de garantir des effectifs suffisants pour le test d'indépendance. L'hypothèse nulle est $H_0$ : les deux variables sont indépendantes. On présente ci-dessous le tableau des effectifs, puis les résultats du test d'indépendance. 
 
 ```{r, message = FALSE, warning = FALSE}
 don_hands_perinee <- don_hands %>%
@@ -2120,7 +2121,7 @@ don_hands_perinee <- don_hands %>%
   mutate(
     perinee = case_when(
       str_sub(perinee, 1, 1) == '1' ~ 'Degré 1',
-      str_sub(perinee, 1, 1) %in% c('2', '3', 'E') ~ 'Degré 1 / Degré 2 / Épisiotomie',
+      str_sub(perinee, 1, 1) %in% c('2', '3', 'É') ~ 'Degré 1 / Degré 2 / Épisiotomie',
       str_sub(perinee, 1, 1) == 'I' ~ 'Intact',
       TRUE ~ perinee
     )
@@ -2220,7 +2221,7 @@ Les résidus présentent une symétrie correcte. On effectue un test de vraissem
 logistic_reg %>% anova(test='LRT')
 ```
 
-D'après le test LRT, la parité et la distance entre le domicile de la mère et la sage-femme sont toutes deux des variables statistiquement significatives dans le cadre de la modélisation de la présence de la sage-femme durant l'accouchement par régression logistique : les p-values sont élevées et les déviances relativement importantes. Néanmoins, l'estimation du coefficient associée à la variable distance mère/sage-femme est proche de zéro. Cela signifie que la distance entre la mère et la sage-femme diminue très peu la probabilité de présence de la sage-femme lors de l'accouchement. En revanche, le coefficient associé à la parité est beaucoup plus important en valeur absolue, et négatif : ainsi une parité élevée a tendance à abaisser la probabilité que la sage-femme soit présente lors de l'accouchement.
+D'après le test LRT, la parité et la distance entre le domicile de la mère et la sage-femme sont toutes deux des variables statistiquement significatives dans le cadre de la modélisation de la présence de la sage-femme durant l'accouchement par régression logistique : les p-values sont élevées et les déviances relativement importantes. Néanmoins, l'estimation du coefficient associée à la variable distance mère/sage-femme est proche de zéro. Cela signifie que la distance entre la mère et la sage-femme diminue peu la probabilité de présence de la sage-femme lors de l'accouchement. En revanche, le coefficient associé à la parité est beaucoup plus important en valeur absolue, et négatif : ainsi une parité élevée aBAISSE la probabilité que la sage-femme soit présente lors de l'accouchement.
 
 ### Risque relatif d'accouchement sans sage-femme des primipares par rapport aux multipares
 
@@ -2303,7 +2304,7 @@ Les résidus sont relativement assymétriques, ce qui peut remettre en cause la 
 logistic_reg %>% anova(test='LRT')
 ```
 
-D'après le test LRT, la significativité statistique de la parité est particulièrement importante pour expliquer le transfert per partum. En effet la p-value associée est extrêmement faible et le coefficient associé (dans la régression) relativement important. L'âge de la mère est lui aussi une variable statistiquement significative. Son coefficient est toutefois proche de 0 dans la régression logistique. Ces conclusions sont à prendre avec réserve étant donnée l'assymétrie des résidus.
+D'après le test LRT, la significativité statistique de la parité est particulièrement importante pour expliquer le transfert per partum. En effet la p-value associée est extrêmement faible et le coefficient associé (dans la régression) relativement important. Ainsi, une parité importante limite le risque de transfert perpartum L'âge de la mère est lui aussi une variable statistiquement significative. Son coefficient est toutefois proche de 0 dans la régression logistique. Ces conclusions sont à prendre avec réserve étant donnée l'assymétrie des résidus.
 
 ## Causes de transfert
 
@@ -2334,6 +2335,8 @@ don_transfert_perpartum %>%
 ```
 
 ## Modalités d'accouchement post-transfert
+
+Cette partie concerne les femmes ayant début le travail à la maison, mais transférée avant l'accouchement.
 
 ```{r}
 don_transfert_perpartum_mode_accouchement <- don_transfert_perpartum %>%
@@ -2411,7 +2414,9 @@ don_transfert_perpartum_mode_ane %>%
 print(hist_transfert_perpartum_mode_ane)
 ```
 
-# Délivrance pour les femmes n'ayant pas fait l'objet d'un transfert post-partum immédiat
+# Délivrance pour les femmes n'ayant pas fait l'objet d'un transfert per-partum immédiat
+
+On exclut ici les femmes transférées avant l'accouchement.
 
 ## Effectifs
 
@@ -3141,7 +3146,7 @@ don_tpp %>%
 
 ## Lien entre Transfert post-partum maternel et Durée d'expulsion / Poids / Parité / Âge
 
-On effectue une régression logistique où la variable à expliquer est le transfert post-partum maternel (1 : transfert / 0 : pas de transfert), et les variables explicatives sont les suivantes : Durée d'expulsion / Poids / Parité / Âge. Il faut noter que les données sont très déséquilibrées, avec seulement 15 transfert post-partum maternels pour 916 mères non-transférées. Cette situation a des conséquences négatives sur la fiabilité du modèle construit ci-dessous.
+On effectue une régression logistique où la variable à expliquer est le transfert post-partum maternel (1 : transfert / 0 : pas de transfert), et les variables explicatives sont les suivantes : Durée d'expulsion / Poids / Parité / Âge. Il faut noter que les données sont très déséquilibrées, avec seulement 14 transfert post-partum maternels pour 916 mères non-transférées. Cette situation a des conséquences négatives sur la fiabilité du modèle construit ci-dessous.
 
 ```{r}
 don_tppm_ <- don_tpp %>%
@@ -3215,7 +3220,7 @@ don_tpp_neo %>%
 
 ## Lien entre Transfert post-partum néonatal et Durée d'expulsion / Poids / Parité / Âge
 
-On effectue une régression logistique où la variable à expliquer est le transfert post-partum néonatal (1 : transfert / 0 : pas de transfert), et les variables explicatives sont les suivantes : Durée d'expulsion / Poids / Parité / Âge. Il faut noter que les données sont très déséquilibrées, avec seulement 16 transfert post-partum maternels pour 918 mères non-transférées. Cette situation a des conséquences négatives sur la fiabilité du modèle construit ci-dessous.
+On effectue une régression logistique où la variable à expliquer est le transfert post-partum néonatal (1 : transfert / 0 : pas de transfert), et les variables explicatives sont les suivantes : Durée d'expulsion / Poids / Parité / Âge. Il faut noter que les données sont très déséquilibrées, avec seulement 14 transfert post-partum néonataux pour 918 mères non-transférées. Cette situation a des conséquences négatives sur la fiabilité du modèle construit ci-dessous.
 
 ```{r}
 don_tppb_ <- don_tpp_neo %>%
@@ -3248,8 +3253,8 @@ D'après le test LRT, aucune variable ne peut être jugée statistiquement signi
 
 ```{r}
 don_sdc <- don %>%
-  filter(
-    transfert_aucun == 1
+  mutate(
+    sdc = if_else(is.na(sdc), "Donnée manquante", sdc)
   )
 
 hist_sdc <- ggplot(data = don_sdc) +
@@ -3258,7 +3263,8 @@ hist_sdc <- ggplot(data = don_sdc) +
   ylab('Effectifs') +
   theme_minimal() +
   ggtitle('Situations mère/enfant durant les suites de couches') +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, hjust = 1))
 
 don_sdc %>%
   group_by(`Suites de couches` = sdc) %>%
@@ -3280,12 +3286,13 @@ don_sdc %>%
 print(hist_sdc)
 ```
 
-## Hospitalisation dans les 8 jours suivant l'accouchement
+## Hospitalisation dans les 8 jours suivant l'accouchement (femmes non-transférées dans le cadre de l'accouchement)
 
 ### Mère
 
 ```{r}
 don_sdc %>%
+  filter(transfert_aucun == 1 ) %>%
   group_by(`Hospitalisation Mère` = hospit_8j_mere) %>%
   summarise(
     Nombre = n(),
@@ -3301,10 +3308,11 @@ don_sdc %>%
     )
 ```
 
-### Bébé
+### Bébé (femmes non-transférées dans le cadre de l'accouchement)
 
 ```{r}
 don_sdc %>%
+  filter(transfert_aucun == 1 ) %>%
   group_by(`Hospitalisation Bébé` = hospit_8j_bebe) %>%
   summarise(
     Nombre = n(),
