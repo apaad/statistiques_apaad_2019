@@ -62,7 +62,7 @@ icrr <- function(x0, n0, x1, n1){
 # Import
 don_raw <- read_xlsx( path = 'data/processed/stats_apaad_2019.xlsx') %>%
   select(
-    id = 1,
+    #id = 1,
     age_mere = 2,
     parite = 3,
     age_gest = 4,
@@ -377,48 +377,49 @@ don <- don_raw %>%
       TRUE ~ 'Autre'
     ),
     douleur = douleur %>% str_extract('^(.+?),') %>% str_sub(1, -2)
-  ) %>%
+  )# %>%
   # La collecte des données relatives aux femmes qui ont été suivies par cette sage-femme n'a pas pu être réalisée dans de bonnes conditions.
   # Beaucoup de valeurs sont manquantes ou incohérentes. On exclut ces données de l'étude.
-  filter( !startsWith(id, 'ggov') )
+  #filter( !startsWith(id, 'ggov') )
 ```
 
+```{r}
+# On omet cette partie en raison d'une qualité des données insuffisantes.
 # Sage-femmes et patientes étudiées
-
-```{r}
-don_sf <- don %>%
-  select(sf = id) %>%
-  arrange(sf) %>%
-  mutate(
-    sf =  sf %>% str_extract('\\D+') %>% str_to_lower() %>% str_trim()
-    ) %>%
-  drop_na(sf) %>%
-  group_by(sf) %>%
-  summarise( count = n()) %>%
-  ungroup()
+# don_sf <- don %>%
+#   select(sf = id) %>%
+#   arrange(sf) %>%
+#   mutate(
+#     sf =  sf %>% str_extract('\\D+') %>% str_to_lower() %>% str_trim()
+#     ) %>%
+#   drop_na(sf) %>%
+#   group_by(sf) %>%
+#   summarise( count = n()) %>%
+#   ungroup()
+#Les données présentement étudiées concernent `r nrow(don)` femmes qui ont été suivies par `r nrow(don_sf)` sages-femmes.
 ```
 
-Les données présentement étudiées concernent `r nrow(don)` femmes qui ont été suivies par `r nrow(don_sf)` sages-femmes.
+Les données présentement étudiées concernent `r nrow(don)` femmes.
 
 ```{r}
-don_sf %>%
-  summarise(
-    nbre_moyen = mean(count, na.rm = TRUE) %>% round(2),
-    nbre_min = min(count, na.rm = TRUE) %>% round(2),
-    nbre_max = max(count, na.rm = TRUE) %>% round(2),
-    nbre_ecart_type = sd(count, na.rm = TRUE) %>% round(2)
-  ) %>%
-  rename(
-    `Moyenne Patientes / SF` = nbre_moyen,
-    `Minimum Patientes / SF` = nbre_min,
-    `Maximum Patientes / SF` = nbre_max,
-    `Écart-type Patientes / SF` = nbre_ecart_type
-  ) %>%
-  kable() %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = FALSE
-    )
+# don_sf %>%
+#   summarise(
+#     nbre_moyen = mean(count, na.rm = TRUE) %>% round(2),
+#     nbre_min = min(count, na.rm = TRUE) %>% round(2),
+#     nbre_max = max(count, na.rm = TRUE) %>% round(2),
+#     nbre_ecart_type = sd(count, na.rm = TRUE) %>% round(2)
+#   ) %>%
+#   rename(
+#     `Moyenne Patientes / SF` = nbre_moyen,
+#     `Minimum Patientes / SF` = nbre_min,
+#     `Maximum Patientes / SF` = nbre_max,
+#     `Écart-type Patientes / SF` = nbre_ecart_type
+#   ) %>%
+#   kable() %>%
+#   kable_styling(
+#     bootstrap_options = c("striped", "hover", "condensed"),
+#     full_width = FALSE
+#     )
 ```
 
 ```{r profil}
@@ -426,7 +427,6 @@ don_sf %>%
 # Sélection colonnes et traitement
 don_profil <- don %>%
   select(
-    id,
     age_mere,
     parite,
     age_gest,
@@ -443,7 +443,6 @@ don_profil <- don %>%
 
 don_profil_groupes_transfert <- don_profil %>%
   select(
-    id,
     age_mere,
     parite,
     age_gest,
@@ -460,7 +459,6 @@ don_profil_groupes_transfert <- don_profil %>%
         transfert_antenatal == 1
       ) %>%
       select(
-        id,
         age_mere,
         parite,
         age_gest,
@@ -478,7 +476,6 @@ don_profil_groupes_transfert <- don_profil %>%
         transfert_perpartum == 1
       ) %>%
       select(
-        id,
         age_mere,
         parite,
         age_gest,
@@ -496,7 +493,6 @@ don_profil_groupes_transfert <- don_profil %>%
         transfert_post_partum_maternel == 1
       ) %>%
       select(
-        id,
         age_mere,
         parite,
         age_gest,
@@ -514,7 +510,6 @@ don_profil_groupes_transfert <- don_profil %>%
         transfert_post_partum_neonatal == 1
       ) %>%
       select(
-        id,
         age_mere,
         parite,
         age_gest,
@@ -535,7 +530,6 @@ don_profil_groupes_transfert <- don_profil %>%
         transfert_post_partum_neonatal == 0
       ) %>%
       select(
-        id,
         age_mere,
         parite,
         age_gest,
@@ -1091,7 +1085,7 @@ Dans cette partie, on exclut la population des femmes ayant fait l'objet d'un tr
 # Données relatives au travail
 don_travail <- don %>%
   select(
-    id,
+    
     age_mere,
     parite,
     age_gest,
