@@ -1986,7 +1986,7 @@ print(hist_duree_expulsion)
 nbre_duree_expulsion_inf_30 <- don_accouchement %>% filter(duree_expulsion <= 30) %>% nrow()
 ``` 
 
-En particulier, on peut noter que pour `r nbre_duree_expulsion_inf_30` femmes (`r round(nbre_duree_expulsion_inf_30 / nrow(don_accouchement), 2)` % ayant effectivement accouché à domicile), la durée d'expulsion a été inférieure ou égale à 30 minutes.
+En particulier, on peut noter que pour `r nbre_duree_expulsion_inf_30` femmes (`r round(100 * nbre_duree_expulsion_inf_30 / nrow(don_accouchement), 2)` % ayant effectivement accouché à domicile), la durée d'expulsion a été inférieure ou égale à 30 minutes.
 
 ### Durée d'expulsion et poids du bébé
 
