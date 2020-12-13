@@ -1,6 +1,5 @@
 ---
-title: "Données APAAD 2020"
-date: "10/05/2020"
+title: "Statistiques APAAD - 10/05/2020"
 output:
   html_document:
     toc: true
@@ -12,10 +11,20 @@ output:
 
 <style type="text/css">
 
+h1.title {
+  font-size: 28px;
+  font_weight: bold;
+  color: rgb(0, 0, 102);
+  text-align: center
+}
+
 .main-container {
-  max-width: 1800px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  max-width: unset;
+}
+
+table{
+  width: 100%;
 }
 
 body{
@@ -56,6 +65,10 @@ icrr <- function(x0, n0, x1, n1){
   b2 <-exp( log(risque_r) + 1.96*sqrt(var_ln_rr) )
   return(str_c("[", round(b1, 2), ";", round(b2, 2), "]"))
 }
+```
+
+```{r image, echo = FALSE, fig.align='center', out.width='50%'}
+knitr::include_graphics("img/logo_apaad.png")
 ```
 
 ```{r import, include=FALSE}
@@ -384,7 +397,7 @@ don <- don_raw %>%
 ```
 
 ```{r}
-# On omet cette partie en raison d'une qualité des données insuffisantes.
+# On omet cette partie pour des raisons d'anonymat.
 # Sage-femmes et patientes étudiées
 # don_sf <- don %>%
 #   select(sf = id) %>%
@@ -398,8 +411,6 @@ don <- don_raw %>%
 #   ungroup()
 #Les données présentement étudiées concernent `r nrow(don)` femmes qui ont été suivies par `r nrow(don_sf)` sages-femmes.
 ```
-
-Les données présentement étudiées concernent `r nrow(don)` femmes.
 
 ```{r}
 # don_sf %>%
@@ -591,6 +602,8 @@ hist_age <- ggplot(data = don_hist)+
 ``` 
 
 # Profils des femmes
+
+Les données présentement étudiées concernent `r nrow(don)` femmes.
 
 ## Âge
 
@@ -2410,7 +2423,7 @@ print(hist_transfert_perpartum_mode_ane)
 
 # Délivrance pour les femmes n'ayant pas fait l'objet d'un transfert per-partum immédiat
 
-On exclut ici les femmes transférées avant l'accouchement.
+On exclut ici les femmes transférées (transfert néonatal/perpartum/postpartum).
 
 ## Effectifs
 
@@ -2418,8 +2431,10 @@ On exclut ici les femmes transférées avant l'accouchement.
 don_delivrance <- don %>%
   filter(
     transfert_antenatal == 0 &
-    transfert_perpartum == 0
-      )
+    transfert_perpartum == 0 &
+    transfert_post_partum_maternel == 0 &
+    transfert_post_partum_neonatal == 0
+    )
   
 don_delivrance_delivrance <- don_delivrance 
 
@@ -2743,8 +2758,10 @@ RR = `r rr(186, 474+186, 125, 127+125)` et IC95%(RR) = `r icrr(474, 474+186, 127
 ```{r}
 don_bebe <- don %>%
   filter(
+    transfert_antenatal == 0 &
     transfert_perpartum == 0 &
-    transfert_antenatal == 0
+    transfert_post_partum_maternel == 0 &
+    transfert_post_partum_neonatal == 0
   ) %>%
   select(
     poids,
@@ -3108,13 +3125,10 @@ print(hist_alimentation)
 
 ```{r}
 don_tpp <- don %>%
-  filter(
-    transfert_post_partum_maternel == 1
-  ) %>%
   drop_na(transfert_post_partum_maternel_raw) %>%
   filter(transfert_post_partum_maternel_raw != 'tpp_neonatal')
 
-hist_tpp <- ggplot(data = don_tpp) +
+hist_tpp <- ggplot(data = don_tpp %>% filter(transfert_post_partum_maternel == 1)) +
   geom_bar( mapping = aes(x=fct_infreq(transfert_post_partum_maternel_raw)), color = 'orangered3', fill='orangered3' ) +
   xlab('Type de transfert post-partum maternel') +
   ylab('Effectifs') +
@@ -3123,6 +3137,7 @@ hist_tpp <- ggplot(data = don_tpp) +
   theme(plot.title = element_text(hjust = 0.5))
 
 don_tpp %>%
+  filter(transfert_post_partum_maternel == 1) %>%
   group_by(`Type de transfert post-partum maternel` = transfert_post_partum_maternel_raw) %>%
   summarise(
     Nombre = n(),
@@ -3144,6 +3159,10 @@ On effectue une régression logistique où la variable à expliquer est le trans
 
 ```{r}
 don_tppm_ <- don_tpp %>%
+  filter(
+     transfert_antenatal == 0 &
+     transfert_perpartum == 0
+  ) %>%
   select(
     transfert_post_partum_maternel,
     duree_expulsion,
@@ -3165,30 +3184,16 @@ Les résidus présentent une symétrie correcte. On effectue un test de vraissem
 logistic_reg %>% anova(test='LRT')
 ```
 
-D'après le test LRT, aucune variable étudiée n'est statistiquement significative.
+D'après le test LRT, la parité est statistiquement significative au seuil de 1%. Une grande partié diminue la probabilité de transfert post partum maternel.
 
 # Transfert post-partum néonatal pour les femmes ayant accouché à domicile
 
 ## Effectifs par type de transfert post-partum néonatal
 
 ```{r}
-don_tpp_neo <- don %>%
-  filter(
-    transfert_post_partum_neonatal == 1
-  ) #%>%
-  # mutate(
-  #   transfert_post_partum_maternel_raw = case_when(
-  #     is.na(transfert_post_partum_maternel_raw) ~ NA_character_,
-  #     str_detect(transfert_post_partum_maternel_raw, 'HPP') ~ 'Hémorragie du post partum',
-  #     str_detect(transfert_post_partum_maternel_raw, 'enfant') ~ 'tpp_neonatal',
-  #     str_detect(transfert_post_partum_maternel_raw, 'accompa') ~ 'tpp_neonatal',
-  #     TRUE ~ transfert_post_partum_maternel_raw
-  #   )
-  # ) %>%
-  # drop_na(transfert_post_partum_maternel_raw) %>%
-  # filter(transfert_post_partum_maternel_raw != 'tpp_neonatal')
+don_tpp_neo <- don
 
-hist_tpp_neo <- ggplot(data = don_tpp_neo) +
+hist_tpp_neo <- ggplot(data = don_tpp_neo %>% filter(transfert_post_partum_neonatal == 1)) +
   geom_bar( mapping = aes(x=fct_infreq(transfert_post_partum_neonatal_raw)), color = 'orangered3', fill='orangered3' ) +
   xlab('Type de transfert post-partum maternel') +
   ylab('Effectifs') +
@@ -3197,6 +3202,7 @@ hist_tpp_neo <- ggplot(data = don_tpp_neo) +
   theme(plot.title = element_text(hjust = 0.5))
 
 don_tpp_neo %>%
+  filter(transfert_post_partum_neonatal == 1) %>%
   group_by(`Type de transfert post-partum néonatal` = transfert_post_partum_neonatal_raw) %>%
   summarise(
     Nombre = n(),
@@ -3218,6 +3224,10 @@ On effectue une régression logistique où la variable à expliquer est le trans
 
 ```{r}
 don_tppb_ <- don_tpp_neo %>%
+  filter(
+     transfert_antenatal == 0 &
+     transfert_perpartum == 0
+  ) %>%
   select(
     transfert_post_partum_neonatal,
     duree_expulsion,
@@ -3247,6 +3257,12 @@ D'après le test LRT, aucune variable ne peut être jugée statistiquement signi
 
 ```{r}
 don_sdc <- don %>%
+  filter(
+    transfert_antenatal == 0 &
+    transfert_perpartum == 0 &
+    transfert_post_partum_maternel == 0 &
+    transfert_post_partum_neonatal == 0
+  ) %>%
   mutate(
     sdc = if_else(is.na(sdc), "Donnée manquante", sdc)
   )
